@@ -26,33 +26,24 @@ class cdbfuzz:
 		print "[+] Debugger path => ",cdblocation
 		
 	def startapp(self,input_file):
-		#cdb加载进程调试
-		#cmd = cdblocation+' '+'-c ".logopen '+crashdir+'temp.log;g;g;r;kv;.logclose '+crashdir+'temp.log" '+program+' '+input_file
-		
-		#直接启动，设置cdb为默认调试器
-		cmd = '"' + program + '" "' + input_file + '"'
-		#print "[+] Start Process => " + cmd
+		filename = input_file.split('\\')[-1:][0]
+		fp = open(crashdir+filename+'.log', 'w')
+		cmd = cdblocation+' '+'-c ".logopen '+crashdir+filename+'.log;g;g;r;kv;.logclose;" '+program+' '+input_file
 		process = subprocess.Popen(cmd)
+		fp.close()
 		return process
 		
 	def kill(self,proc_obj):
 		proc_obj.terminate()
 		
-	def wascrash(self):#Did the prog. crash last time ??
-		'''
-		#cdb 附加调试输出日志的崩溃检测 
-		log = open(crashdir+'temp.log').read()
-		if ("Access violation - code" in log) or ("divide-by-zero") in log:
-			return True
-		'''	
-		
-		#当cdb为默认调试器，检测cdb.exe进程是否存在来监控崩溃
-		ret = os.system("taskkill /F /IM cdb.exe 2>nul")
-		if 0 == ret:
+	def wascrash(self,test_filename):#Did the prog. crash last time ??
+		log = open(crashdir+test_filename.split('\\')[-1:][0]+'.log').read()
+		if ("Access violation - code" in log) or ("!!! second chance !!!" in log) or ("divide-by-zero") in log:
 			return True
 		else:
 			return False
-	
+		
+
 	def dumpcrash(self,crash_filename):
 		print "[+] Dump Crash File !"
 		prog = program.split('\\')[-1:][0]
@@ -61,17 +52,20 @@ class cdbfuzz:
 	def check(self, proc, file):
 		begin = time.time()
 		while 1:	
-			if self.wascrash() == True:	
+			if self.wascrash(file) == True:	
 				print "[+] Crashed"
 				self.dumpcrash(file)
 				return
 			elif (time.time() - begin) > timeout:
 				self.kill(proc)
+				#os.remove(crashdir+file.split('\\')[-1:][0]+'.log')
 				return
 			else:
+				#os.remove(crashdir+file.split('\\')[-1:][0]+'.log')
 				continue
 				
-timeout = 5
+timeout = 3
+
 '''
 if len(sys.argv) < 3:
 	print "[Usage]: python cdbfuzzer.py <program> <file/dir> [timeout]"
@@ -82,10 +76,9 @@ else:
 if len(sys.argv) == 4:
 	timeout = sys.argv[3]
 '''
-cdblocation = "C:\\Program Files\\Debugging Tools for Windows (x64)\\cdb.exe"
-program = "C:\\Program Files (x86)\\Adobe\Acrobat DC\\Acrobat\\Acrobat.exe"
-input = "C:\\Users\\Administrator\\Desktop\\afl-tiff"
-#input = "C:\\Users\\Administrator\\Desktop\\crash.tif"
+cdblocation = "E:\\fuzzer\\riufuzz\\tools\\cdb.exe"
+program = "E:\\ResearchTarget\\webex\\Webex\\500\\nbrplay.exe"
+input = "E:\\fuzzer\\riufuzz\\arf"
 crashdir = "./"
 fuzz = cdbfuzz(program,crashdir,cdblocation)
 
